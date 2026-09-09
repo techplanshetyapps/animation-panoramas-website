@@ -1,45 +1,62 @@
-# Ecosystem Viewer (Flutter Web)
+# Ecosystem Viewer & OLAP Telemetry Platform (Flutter Web)
 
-An interactive, responsive 3D and 2D ecosystem and panorama explorer built with **Flutter Web**, replicating a React-based architecture. This application allows users to seamlessly navigate through various global biomes, view 3D `.glb` models, and inspect real-time climate and biodiversity metrics.
+An advanced, responsive 3D and 2D ecosystem and panorama explorer built with Flutter Web, featuring containerized real-time telemetry pipelines. This application allows users to seamlessly navigate through global biomes, render interactive 3D `.glb` models, run transparent sprite-sheet animations, and monitor real-time AI-augmented ecological metrics via Parallel.ai, Open-Meteo, ClickHouse OLAP, and Grafana MCP.
 
----
+## Key Features
 
-## Features
-
-- **3D & 2D Biome Navigation:** Switch between immersive environments like Jungle Forests, Ocean Floors, Cloud Forests, and Seagrass Meadows.
-- **Interactive 3D Model Rendering:** Powered by `model_viewer_plus` with built-in rotation, zoom, and camera controls.
-- **Dynamic Background Gradients:** Smooth, animated color transitions matching the active ecosystem's atmospheric theme.
-- **Real-Time Biome Metrics:** Live integration via Dio to fetch weather, solar data (sunrise/sunset), and wildlife tracking data.
-- **Cross-Platform Web Ready:** Fully optimized for modern web browsers with responsive overlay controls.
-
----
+- **3D & 2D Biome Navigation**: Switch dynamically between global environments like Jungle Forests, Ocean Floors, Cloud Forests, and Seagrass Meadows.
+- **Transparent Sprite Sheet Overlays**: Dynamic multi-frame sprite animations (`sprite-01.png` to `sprite-08.png`) mapped smoothly behind 3D models with transparent alpha channels.
+- **Parallel.ai Agent Search Integration**: Real-time concurrent multi-stream queries (`Future.wait`) combining Open-Meteo weather forecasts and Parallel.ai agent deep-research search payloads.
+- **ClickHouse Columnar Database & Grafana MCP**: High-throughput analytical logging and metrics processed via a containerized ClickHouse OLAP backend and visualized through a half-transparent glassmorphism dashboard HUD.
+- **Cross-Platform Web Ready**: Fully optimized for modern web browsers with responsive layout scaling.
 
 ## Tech Stack
 
-- **Framework:** [Flutter](https://flutter.dev) (v3.0+)
-- **Language:** [Dart](https://dart.dev)
-- **3D Rendering:** `model_viewer_plus` (Google Model Viewer wrapper)
-- **Networking:** `dio` for HTTP API requests
-- **Icons:** `font_awesome_flutter`
-
----
+- **Framework**: [Flutter Web](https://flutter.dev) (v3.0+)
+- **Language**: [Dart](https://dart.dev)
+- **3D Rendering**: `model_viewer_plus` (Google Model Viewer wrapper)
+- **Networking & Concurrency**: `dio` with asynchronous parallel stream handling (`Future.wait`)
+- **AI & Analytics**: Parallel.ai Search API, Open-Meteo API, ClickHouse Columnar DB, Grafana MCP Server
+- **Icons & Styling**: `font_awesome_flutter`, custom `CustomPainter` glassmorphism widgets
 
 ## Project Structure
 
-```text
+```
 animation-panoramas-website/
 ├── assets/
-│   └── models/          # .glb 3D asset files (jungle-forest.glb, ocean-floor.glb, etc.)
+│   ├── models/            # .glb 3D asset files (jungle-forest.glb, etc.)
+│   └── sprite-01.png...8  # Multi-frame animated biome sprite sheets
 ├── lib/
 │   ├── data/
-│   │   └── ecosystems.dart  # Biome definitions and metadata
+│   │   └── ecosystems.dart     # Biome definitions, coords, and metadata mappings
 │   ├── models/
-│   │   └── ecosystem.dart   # Core data models and background schemas
+│   │   └── ecosystem.dart      # Core data models and background schemas
 │   ├── services/
-│   │   └── api_service.dart # Dio-powered API client for live metrics
-│   └── main.dart            # Main app entry point and UI layout
+│   │   ├── api_service.dart    # Legacy telemetry connectors
+│   │   └── olap_service.dart   # Parallel.ai & ClickHouse concurrent analytics connector
+│   ├── widgets/
+│   │   ├── grafana_mcp_dashboard_widget.dart # Frosted glassmorphism HUD dashboard
+│   │   └── sprite_sheet-animaror.dart        # Custom sprite painter & controller
+│   └── main.dart               # Main app entry point and state coordinator
 ├── web/
-│   └── index.html       # Web host template containing model-viewer scripts
-├── pubspec.yaml         # Project dependencies and asset declarations
+│   └── index.html         # Web host template containing model-viewer scripts
+├── docker-compose.yml     # ClickHouse & Grafana MCP container cluster configuration
+├── schema.sql             # ClickHouse columnar analytical table definitions
+├── pubspec.yaml           # Project dependencies and asset declarations
 └── README.md
+```
+
+## Local Deployment & Docker Services
+
+To spin up the local ClickHouse OLAP database and Grafana MCP server infrastructure:
+
+```bash
+docker-compose up -d
+```
+
+To run the Flutter Web application locally:
+
+```bash
+flutter pub get
+flutter run -d chrome
 ```
