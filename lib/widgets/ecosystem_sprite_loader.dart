@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
-import '../widgets/sprite_sheet-animaror.dart';
+import '../widgets/sprite_sheet_animator.dart';
 
 class EcosystemSpriteLoader extends StatefulWidget {
   final String imagePath;
