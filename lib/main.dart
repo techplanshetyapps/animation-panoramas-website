@@ -1,8 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'models/ecosystem.dart';
 import 'data/ecosystems.dart';
-import 'services/api_service.dart';
+import 'services/olap_service.dart';
+import 'widgets/grafana_mcp_dashboard_widget.dart';
+import 'widgets/ecosystem_sprite_loader.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 
 void main() {
@@ -32,22 +35,37 @@ class EcosystemHomeScreen extends StatefulWidget {
 
 class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
   int _currentIndex = 0;
-  Map<String, dynamic>? _liveData;
   bool _isFetchingLive = false;
-  final ApiService _apiService = ApiService();
+  
+  // Parallel API Telemetry State Map
+  Map<String, dynamic> _telemetryData = {
+    'temperature': 0.0,
+    'humidity': 0.0,
+    'specimen': 'Scanning...',
+    'status': 'SYNCING',
+  };
+
+  final OlapApiService _olapApiService = OlapApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadLiveData();
+    _loadParallelTelemetry();
   }
 
-  Future<void> _loadLiveData() async {
+  Future<void> _loadParallelTelemetry() async {
     setState(() => _isFetchingLive = true);
     final ecosystem = ecosystems[_currentIndex];
-    final data = await _apiService.fetchEcosystemLiveData(ecosystem.slug);
+    
+    // Executes concurrent parallel API streams (Open-Meteo & Parallel.ai)
+    final data = await _olapApiService.fetchEcosystemWithParallelAI(
+      ecosystem.title, 
+      ecosystem.lat, 
+      ecosystem.lng,
+    );
+
     setState(() {
-      _liveData = data;
+      _telemetryData = data;
       _isFetchingLive = false;
     });
   }
@@ -56,14 +74,14 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     setState(() {
       _currentIndex = (_currentIndex + 1) % ecosystems.length;
     });
-    _loadLiveData();
+    _loadParallelTelemetry();
   }
 
   void _goPrev() {
     setState(() {
       _currentIndex = (_currentIndex - 1 + ecosystems.length) % ecosystems.length;
     });
-    _loadLiveData();
+    _loadParallelTelemetry();
   }
 
   @override
@@ -85,6 +103,20 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
             ),
           ),
 
+          // 1.5 Transparent Animated Sprite Sheet Overlay
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.4,
+              child: EcosystemSpriteLoader(
+                key: ValueKey(ecosystem.spritePath),
+                imagePath: ecosystem.spritePath,
+                totalFrames: ecosystem.spriteTotalFrames,
+                columns: ecosystem.spriteColumns,
+                rows: ecosystem.spriteRows,
+              ),
+            ),
+          ),
+
           // 2. 3D/2D Model Viewer Canvas Replacement
           Positioned.fill(
             child: ModelViewer(
@@ -97,7 +129,7 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
             ),
           ),
 
-          // 3. UI Overlay
+          // 3. UI Overlay & Parallel Telemetry Dashboard
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -140,14 +172,25 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
                       const SizedBox(height: 8),
                       Text(
                         ecosystem.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9), height: 1.4),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         ecosystem.fact,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.white.withOpacity(0.8)),
                       ),
                     ],
+                  ),
+
+                  // Middle: Grafana MCP & Parallel.ai Telemetry Dashboard Widget
+                  GrafanaMcpDashboardWidget(
+                    telemetry: _telemetryData,
+                    isFetching: _isFetchingLive,
+                    onRefresh: _loadParallelTelemetry,
                   ),
 
                   // Bottom Navigation Controls
