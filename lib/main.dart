@@ -36,40 +36,37 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
   int _currentIndex = 0;
   bool _isFetchingLive = false;
   
-  // Live API States
-  double? _temperature;
-  double? _humidity;
-  String? _sunrise;
-  String? _sunset;
-  String? _wildlifeSample;
+  // Parallel API Telemetry State Map
+  Map<String, dynamic> _telemetryData = {
+    'temperature': 0.0,
+    'humidity': 0.0,
+    'sunrise': 'Loading...',
+    'sunset': 'Loading...',
+    'specimen': 'Scanning...',
+    'status': 'SYNCING',
+  };
 
   final OlapApiService _olapApiService = OlapApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadAllLiveData();
+    _loadParallelTelemetry();
   }
 
-  Future<void> _loadAllLiveData() async {
+  Future<void> _loadParallelTelemetry() async {
     setState(() => _isFetchingLive = true);
     final ecosystem = ecosystems[_currentIndex];
 
-    // Parallel fetching for performance via OlapApiService
-    final weatherFuture = _olapApiService.fetchWeather(ecosystem.lat, ecosystem.lng);
-    final solarFuture = _olapApiService.fetchSolarTimes(ecosystem.lat, ecosystem.lng);
-    final wildlifeFuture = _olapApiService.fetchWildlifeSample(ecosystem.lat, ecosystem.lng);
-
-    final weatherData = await weatherFuture;
-    final solarData = await solarFuture;
-    final wildlifeData = await wildlifeFuture;
+    // Executes concurrent parallel API streams and ClickHouse analytical integration
+    final data = await _olapApiService.fetchEcosystemWithParallelAI(
+      ecosystem.title,
+      ecosystem.lat,
+      ecosystem.lng,
+    );
 
     setState(() {
-      _temperature = weatherData?['temperature_2m']?.toDouble();
-      _humidity = weatherData?['relative_humidity_2m']?.toDouble();
-      _sunrise = solarData?['sunrise'] ?? 'N/A';
-      _sunset = solarData?['sunset'] ?? 'N/A';
-      _wildlifeSample = wildlifeData;
+      _telemetryData = data;
       _isFetchingLive = false;
     });
   }
@@ -78,14 +75,14 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     setState(() {
       _currentIndex = (_currentIndex + 1) % ecosystems.length;
     });
-    _loadAllLiveData();
+    _loadParallelTelemetry();
   }
 
   void _goPrev() {
     setState(() {
       _currentIndex = (_currentIndex - 1 + ecosystems.length) % ecosystems.length;
     });
-    _loadAllLiveData();
+    _loadParallelTelemetry();
   }
 
   @override
@@ -201,83 +198,11 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
                     ],
                   ),
 
-                  // Middle Live Telemetry Glassmorphism Dashboard Card / Grafana MCP Integration
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.15)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "BIOME LIVE TELEMETRY",
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.cyanAccent),
-                            ),
-                            if (_isFetchingLive)
-                              const SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent),
-                              ),
-                          ],
-                        ),
-                        const Divider(color: Colors.white24, height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildMetricItem(
-                              FontAwesomeIcons.temperatureHigh,
-                              "Temperature",
-                              _temperature != null ? "$_temperature°C" : "---",
-                            ),
-                            _buildMetricItem(
-                              FontAwesomeIcons.droplet,
-                              "Humidity",
-                              _humidity != null ? "$_humidity%" : "---",
-                            ),
-                            _buildMetricItem(
-                              FontAwesomeIcons.sun,
-                              "Solar Event",
-                              _sunrise != null ? "Rise: ${_sunrise!.split('T').last.substring(0, 5)}" : "---",
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              const FaIcon(FontAwesomeIcons.paw, size: 14, color: Colors.amberAccent),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "Sample Wildlife: ${_wildlifeSample ?? 'Scanning regional records...'}",
-                                  style: const TextStyle(fontSize: 12, color: Colors.white70, fontStyle: FontStyle.italic),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  // Middle: Grafana MCP & Columnar Metrics Dashboard Widget
+                  GrafanaMcpDashboardWidget(
+                    telemetry: _telemetryData,
+                    isFetching: _isFetchingLive,
+                    onRefresh: _loadParallelTelemetry,
                   ),
 
                   // Bottom Navigation Controls
@@ -316,18 +241,6 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMetricItem(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        FaIcon(icon, size: 16, color: Colors.white70),
-        const SizedBox(height: 6),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white60)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-      ],
     );
   }
 }
