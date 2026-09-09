@@ -4,7 +4,7 @@ class OlapApiService {
   final Dio _dio = Dio();
   
   // Parallel API multi-stream fetch combining Open-Meteo, Solar API, and GBIF
-  Future<Map<String, dynamic>> fetchParallelEcosystemTelemetry(String slug, double lat, double lng) async {
+  Future<Map<String, dynamic>> fetchEcosystemWithParallelAI(String slug, double lat, double lng) async {
     try {
       final futures = await Future.wait([
         _dio.get('https://api.open-meteo.com/v1/forecast', queryParameters: {
