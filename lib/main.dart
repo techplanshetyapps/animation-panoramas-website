@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'models/ecosystem.dart';
@@ -37,35 +36,40 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
   int _currentIndex = 0;
   bool _isFetchingLive = false;
   
-  // Parallel API Telemetry State Map
-  Map<String, dynamic> _telemetryData = {
-    'temperature': 0.0,
-    'humidity': 0.0,
-    'specimen': 'Scanning...',
-    'status': 'SYNCING',
-  };
+  // Live API States
+  double? _temperature;
+  double? _humidity;
+  String? _sunrise;
+  String? _sunset;
+  String? _wildlifeSample;
 
   final OlapApiService _olapApiService = OlapApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadParallelTelemetry();
+    _loadAllLiveData();
   }
 
-  Future<void> _loadParallelTelemetry() async {
+  Future<void> _loadAllLiveData() async {
     setState(() => _isFetchingLive = true);
     final ecosystem = ecosystems[_currentIndex];
-    
-    // Executes concurrent parallel API streams (Open-Meteo & Parallel.ai)
-    final data = await _olapApiService.fetchEcosystemWithParallelAI(
-      ecosystem.title, 
-      ecosystem.lat, 
-      ecosystem.lng,
-    );
+
+    // Parallel fetching for performance via OlapApiService
+    final weatherFuture = _olapApiService.fetchWeather(ecosystem.lat, ecosystem.lng);
+    final solarFuture = _olapApiService.fetchSolarTimes(ecosystem.lat, ecosystem.lng);
+    final wildlifeFuture = _olapApiService.fetchWildlifeSample(ecosystem.lat, ecosystem.lng);
+
+    final weatherData = await weatherFuture;
+    final solarData = await solarFuture;
+    final wildlifeData = await wildlifeFuture;
 
     setState(() {
-      _telemetryData = data;
+      _temperature = weatherData?['temperature_2m']?.toDouble();
+      _humidity = weatherData?['relative_humidity_2m']?.toDouble();
+      _sunrise = solarData?['sunrise'] ?? 'N/A';
+      _sunset = solarData?['sunset'] ?? 'N/A';
+      _wildlifeSample = wildlifeData;
       _isFetchingLive = false;
     });
   }
@@ -74,14 +78,14 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     setState(() {
       _currentIndex = (_currentIndex + 1) % ecosystems.length;
     });
-    _loadParallelTelemetry();
+    _loadAllLiveData();
   }
 
   void _goPrev() {
     setState(() {
       _currentIndex = (_currentIndex - 1 + ecosystems.length) % ecosystems.length;
     });
-    _loadParallelTelemetry();
+    _loadAllLiveData();
   }
 
   @override
@@ -117,7 +121,7 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
             ),
           ),
 
-          // 2. 3D/2D Model Viewer Canvas Replacement
+          // 2. 3D Model Viewer Canvas
           Positioned.fill(
             child: ModelViewer(
               key: ValueKey(ecosystem.slug),
@@ -129,21 +133,39 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
             ),
           ),
 
-          // 3. UI Overlay & Parallel Telemetry Dashboard
+          // 3. Vivid Half-Transparent UI Dashboard Overlay
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top section info
+                  // Top Title & Bio Badge
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              border: Border.all(color: Colors.white.withOpacity(0.2)),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              children: [
+                                const FaIcon(FontAwesomeIcons.globe, size: 12, color: Colors.cyanAccent),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "LAT: ${ecosystem.lat}, LNG: ${ecosystem.lng}",
+                                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                                ),
+                              ],
+                            ),
+                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
@@ -164,33 +186,98 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         ecosystem.title,
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
                         ecosystem.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9), height: 1.4),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        ecosystem.fact,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.white.withOpacity(0.8)),
+                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.85), height: 1.3),
                       ),
                     ],
                   ),
 
-                  // Middle: Grafana MCP & Parallel.ai Telemetry Dashboard Widget
-                  GrafanaMcpDashboardWidget(
-                    telemetry: _telemetryData,
-                    isFetching: _isFetchingLive,
-                    onRefresh: _loadParallelTelemetry,
+                  // Middle Live Telemetry Glassmorphism Dashboard Card / Grafana MCP Integration
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.15)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "BIOME LIVE TELEMETRY",
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.cyanAccent),
+                            ),
+                            if (_isFetchingLive)
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent),
+                              ),
+                          ],
+                        ),
+                        const Divider(color: Colors.white24, height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildMetricItem(
+                              FontAwesomeIcons.temperatureHigh,
+                              "Temperature",
+                              _temperature != null ? "$_temperature°C" : "---",
+                            ),
+                            _buildMetricItem(
+                              FontAwesomeIcons.droplet,
+                              "Humidity",
+                              _humidity != null ? "$_humidity%" : "---",
+                            ),
+                            _buildMetricItem(
+                              FontAwesomeIcons.sun,
+                              "Solar Event",
+                              _sunrise != null ? "Rise: ${_sunrise!.split('T').last.substring(0, 5)}" : "---",
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const FaIcon(FontAwesomeIcons.paw, size: 14, color: Colors.amberAccent),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Sample Wildlife: ${_wildlifeSample ?? 'Scanning regional records...'}",
+                                  style: const TextStyle(fontSize: 12, color: Colors.white70, fontStyle: FontStyle.italic),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   // Bottom Navigation Controls
@@ -199,17 +286,25 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: _goPrev,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black54,
+                          foregroundColor: Colors.white,
+                        ),
                         icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 12),
                         label: const Text("Prev"),
                       ),
                       const SizedBox(width: 20),
                       Text(
                         "${_currentIndex + 1} / ${ecosystems.length}",
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(width: 20),
                       ElevatedButton.icon(
                         onPressed: _goNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black54,
+                          foregroundColor: Colors.white,
+                        ),
                         label: const Text("Next"),
                         icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 12),
                       ),
@@ -221,6 +316,18 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMetricItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        FaIcon(icon, size: 16, color: Colors.white70),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white60)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+      ],
     );
   }
 }
