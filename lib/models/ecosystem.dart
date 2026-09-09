@@ -18,6 +18,11 @@ class Ecosystem {
   final String fact;
   final EcosystemBackground background;
   final double cameraDistance;
+  
+  final String spritePath;
+  final int spriteTotalFrames;
+  final int spriteColumns;
+  final int spriteRows;
 
   const Ecosystem({
     required this.slug,
@@ -30,5 +35,9 @@ class Ecosystem {
     required this.fact,
     required this.background,
     required this.cameraDistance,
+    required this.spritePath,
+    required this.spriteTotalFrames,
+    required this.spriteColumns,
+    required this.spriteRows,
   });
 }
