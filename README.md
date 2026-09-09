@@ -25,7 +25,7 @@ An advanced, responsive 3D and 2D ecosystem and panorama explorer built with Flu
 animation-panoramas-website/
 ├── assets/
 │   ├── models/            # .glb 3D asset files (jungle-forest.glb, etc.)
-│   └── sprite-01.png...8  # Multi-frame animated biome sprite sheets
+│   └── sprites/sprite-01.png...8  # Multi-frame animated biome sprite sheets
 ├── lib/
 │   ├── data/
 │   │   └── ecosystems.dart     # Biome definitions, coords, and metadata mappings
@@ -36,7 +36,7 @@ animation-panoramas-website/
 │   │   └── olap_service.dart   # Parallel.ai & ClickHouse concurrent analytics connector
 │   ├── widgets/
 │   │   ├── grafana_mcp_dashboard_widget.dart # Frosted glassmorphism HUD dashboard
-│   │   └── sprite_sheet-animaror.dart        # Custom sprite painter & controller
+│   │   └── sprite_sheet_animator.dart        # Custom sprite painter & controller
 │   └── main.dart               # Main app entry point and state coordinator
 ├── web/
 │   └── index.html         # Web host template containing model-viewer scripts
