@@ -104,16 +104,20 @@ class OlapApiService {
 
   Future<List<Map<String, dynamic>>> queryClickHouseAnalytics(String slug) async {
     try {
+      print("Querying ClickHouse for slug: $slug");
       final response = await _dio.post(
         _clickHouseUrl,
         data: "SELECT toStartOfHour(event_timestamp) as hr, avg(metric_reading) as avg_metric, argMax(mcp_tool_name, event_timestamp) as tool FROM telemetry_germanywestcentral.grafana_mcp_analytics WHERE service_source = '$slug' GROUP BY hr ORDER BY hr DESC LIMIT 10 FORMAT JSON",
         options: _clickHouseAuthOptions,
       );
       
+      print("ClickHouse response status: ${response.statusCode}");
       if (response.statusCode == 200) {
-        final data = response.data['data'] as List?;
+        final responseData = response.data;
+        final data = (responseData is Map) ? responseData['data'] as List? : null;
         if (data != null) {
-          return data.map((e) => e as Map<String, dynamic>).toList();
+          print("Found ${data.length} logs for $slug");
+          return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }
       }
     } catch (e) {
@@ -121,4 +125,3 @@ class OlapApiService {
     }
     return [];
   }
-}
