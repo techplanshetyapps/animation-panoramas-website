@@ -59,8 +59,8 @@ class GrafanaMcpDashboardWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildOLAPMetricCard("Live Temp", "${telemetry['temperature']}°C", Icons.thermostat),
-              _buildOLAPMetricCard("Humidity", "${telemetry['humidity']}%", Icons.water_drop),
+              _buildOLAPMetricCard("Sunrise", "${telemetry['sunrise']}", Icons.wb_sunny),
+              _buildOLAPMetricCard("Sunset", "${telemetry['sunset']}", Icons.nights_stay),
               _buildOLAPMetricCard("Node Status", "${telemetry['status']}", Icons.bolt),
             ],
           ),
@@ -105,7 +105,7 @@ class GrafanaMcpDashboardWidget extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ],
     );

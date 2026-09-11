@@ -5,6 +5,7 @@ import 'data/ecosystems.dart';
 import 'services/olap_service.dart';
 import 'widgets/grafana_mcp_dashboard_widget.dart';
 import 'widgets/ecosystem_sprite_loader.dart';
+import 'widgets/open_meteo_live_widget.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 
 void main() {
@@ -19,7 +20,6 @@ class EcosystemApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Ecosystem Viewer',
-      theme: ThemeData.dark(),
       home: const EcosystemHomeScreen(),
     );
   }
@@ -36,12 +36,19 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
   int _currentIndex = 0;
   bool _isFetchingLive = false;
   
-  // Parallel API Telemetry State Map
   Map<String, dynamic> _telemetryData = {
-    'temperature': 0.0,
-    'humidity': 0.0,
-    'sunrise': 'Loading...',
-    'sunset': 'Loading...',
+    'temperature_2m': 21.0,
+    'apparent_temperature': 22.0,
+    'relative_humidity_2m': 55.0,
+    'precipitation': 0.0,
+    'cloud_cover': 15.0,
+    'surface_pressure': 1012.0,
+    'wind_speed_10m': 8.5,
+    'wind_direction_10m': 140.0,
+    'wind_gusts_10m': 15.0,
+    'weather_code': 0,
+    'sunrise': '06:00:00 AM',
+    'sunset': '06:00:00 PM',
     'specimen': 'Scanning...',
     'status': 'SYNCING',
   };
@@ -58,9 +65,8 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     setState(() => _isFetchingLive = true);
     final ecosystem = ecosystems[_currentIndex];
 
-    // Executes concurrent parallel API streams and ClickHouse analytical integration
     final data = await _olapApiService.fetchEcosystemWithParallelAI(
-      ecosystem.title,
+      ecosystem.slug,
       ecosystem.lat,
       ecosystem.lng,
     );
@@ -71,176 +77,206 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     });
   }
 
-  void _goNext() {
+  void _onSegmentSelected(Set<int> newSelection) {
     setState(() {
-      _currentIndex = (_currentIndex + 1) % ecosystems.length;
+      _currentIndex = newSelection.first;
     });
     _loadParallelTelemetry();
   }
 
-  void _goPrev() {
-    setState(() {
-      _currentIndex = (_currentIndex - 1 + ecosystems.length) % ecosystems.length;
-    });
-    _loadParallelTelemetry();
+  String _toRoman(int number) {
+    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+    const numerals = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+    var num = number;
+    var result = '';
+    for (int i = 0; i < values.length; i++) {
+      while (num >= values[i]) {
+        result += numerals[i];
+        num -= values[i];
+      }
+    }
+    return result.isEmpty ? number.toString() : result;
   }
 
   @override
   Widget build(BuildContext context) {
     final ecosystem = ecosystems[_currentIndex];
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Dynamic Background Gradient
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 800),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [ecosystem.background.top, ecosystem.background.bottom],
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: ecosystem.background.top,
+          brightness: Brightness.dark,
+        ),
+      ),
+      builder: (context, child) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final textTheme = Theme.of(context).textTheme;
+
+        return Scaffold(
+          body: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 800),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [ecosystem.background.top, ecosystem.background.bottom],
+                  ),
+                ),
               ),
-            ),
-          ),
-
-          // 1.5 Transparent Animated Sprite Sheet Overlay
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.4,
-              child: EcosystemSpriteLoader(
-                key: ValueKey(ecosystem.spritePath),
-                imagePath: ecosystem.spritePath,
-                totalFrames: ecosystem.spriteTotalFrames,
-                columns: ecosystem.spriteColumns,
-                rows: ecosystem.spriteRows,
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.4,
+                  child: EcosystemSpriteLoader(
+                    key: ValueKey(ecosystem.spritePath),
+                    imagePath: ecosystem.spritePath,
+                    totalFrames: ecosystem.spriteTotalFrames,
+                    columns: ecosystem.spriteColumns,
+                    rows: ecosystem.spriteRows,
+                  ),
+                ),
               ),
-            ),
-          ),
-
-          // 2. 3D Model Viewer Canvas
-          Positioned.fill(
-            child: ModelViewer(
-              key: ValueKey(ecosystem.slug),
-              src: ecosystem.modelPath,
-              alt: ecosystem.title,
-              autoRotate: true,
-              cameraControls: true,
-              backgroundColor: Colors.transparent,
-            ),
-          ),
-
-          // 3. Vivid Half-Transparent UI Dashboard Overlay
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Title & Bio Badge
-                  Column(
+              Positioned.fill(
+                child: ModelViewer(
+                  key: ValueKey(ecosystem.slug),
+                  src: ecosystem.modelPath,
+                  alt: ecosystem.title,
+                  autoRotate: true,
+                  cameraControls: true,
+                  backgroundColor: Colors.transparent,
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
-                              border: Border.all(color: Colors.white.withOpacity(0.2)),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              children: [
-                                const FaIcon(FontAwesomeIcons.globe, size: 12, color: Colors.cyanAccent),
-                                const SizedBox(width: 6),
-                                Text(
-                                  "LAT: ${ecosystem.lat}, LNG: ${ecosystem.lng}",
-                                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'monospace'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Card.outlined(
+                                color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      FaIcon(FontAwesomeIcons.globe, size: 12, color: colorScheme.primary),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "LAT: ${ecosystem.lat}, LNG: ${ecosystem.lng}",
+                                        style: textTheme.bodySmall?.copyWith(fontFamily: 'monospace', color: colorScheme.onSurfaceVariant),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              Card.filled(
+                                color: colorScheme.secondaryContainer.withOpacity(0.6),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      FaIcon(FontAwesomeIcons.leaf, size: 12, color: colorScheme.onSecondaryContainer),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        ecosystem.type == "3d" ? "3D SCENE" : "2D SCENE",
+                                        style: textTheme.labelMedium?.copyWith(letterSpacing: 0.8, color: colorScheme.onSecondaryContainer),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              border: Border.all(color: Colors.white.withOpacity(0.3)),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              children: [
-                                const FaIcon(FontAwesomeIcons.leaf, size: 12, color: Colors.white),
-                                const SizedBox(width: 6),
-                                Text(
-                                  ecosystem.type == "3d" ? "3D SCENE" : "2D SCENE",
-                                  style: const TextStyle(fontSize: 12, letterSpacing: 0.8),
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 10),
+                          Text(
+                            ecosystem.title,
+                            style: textTheme.displayLarge?.copyWith(fontSize: 28, fontWeight: FontWeight.w900, color: colorScheme.onSurface, letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            ecosystem.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.85), height: 1.3),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        ecosystem.title,
-                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                      Column(
+                        children: [
+                          OpenMeteoLiveWidget(
+                            weatherData: _telemetryData,
+                            isFetching: _isFetchingLive,
+                            onRefresh: _loadParallelTelemetry,
+                          ),
+                          const SizedBox(height: 10),
+                          GrafanaMcpDashboardWidget(
+                            telemetry: _telemetryData,
+                            isFetching: _isFetchingLive,
+                            onRefresh: _loadParallelTelemetry,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        ecosystem.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.85), height: 1.3),
+                      Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentIndex = (_currentIndex - 1 + ecosystems.length) % ecosystems.length;
+                                  });
+                                  _loadParallelTelemetry();
+                                },
+                                icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 12),
+                                label: const Text("Prev"),
+                              ),
+                              const SizedBox(width: 12),
+                              SegmentedButton<int>(
+                                segments: List.generate(
+                                  ecosystems.length,
+                                  (index) => ButtonSegment<int>(
+                                    value: index,
+                                    label: Text(_toRoman(index + 1)),
+                                  ),
+                                ),
+                                selected: {_currentIndex},
+                                onSelectionChanged: _onSegmentSelected,
+                              ),
+                              const SizedBox(width: 12),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentIndex = (_currentIndex + 1) % ecosystems.length;
+                                  });
+                                  _loadParallelTelemetry();
+                                },
+                                icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 12),
+                                label: const Text("Next"),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-
-                  // Middle: Grafana MCP & Columnar Metrics Dashboard Widget
-                  GrafanaMcpDashboardWidget(
-                    telemetry: _telemetryData,
-                    isFetching: _isFetchingLive,
-                    onRefresh: _loadParallelTelemetry,
-                  ),
-
-                  // Bottom Navigation Controls
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _goPrev,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black54,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 12),
-                        label: const Text("Prev"),
-                      ),
-                      const SizedBox(width: 20),
-                      Text(
-                        "${_currentIndex + 1} / ${ecosystems.length}",
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 20),
-                      ElevatedButton.icon(
-                        onPressed: _goNext,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black54,
-                          foregroundColor: Colors.white,
-                        ),
-                        label: const Text("Next"),
-                        icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 12),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
