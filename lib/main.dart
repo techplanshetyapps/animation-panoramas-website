@@ -4,6 +4,7 @@ import 'models/ecosystem.dart';
 import 'data/ecosystems.dart';
 import 'services/olap_service.dart';
 import 'widgets/grafana_mcp_dashboard_widget.dart';
+import 'widgets/telemetry_observability_widget.dart';
 import 'widgets/ecosystem_sprite_loader.dart';
 import 'widgets/open_meteo_live_widget.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -53,6 +54,7 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     'status': 'SYNCING',
   };
 
+  List<Map<String, dynamic>> _clickHouseLogs = [];
   final OlapApiService _olapApiService = OlapApiService();
 
   @override
@@ -74,10 +76,10 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
 
     // Query ClickHouse telemetry analytics for the current ecosystem
     final analyticsData = await _olapApiService.queryClickHouseAnalytics(ecosystem.slug);
-    print('Loaded ${analyticsData.length} analytics rows from ClickHouse for ${ecosystem.slug}');
 
     setState(() {
       _telemetryData = data;
+      _clickHouseLogs = analyticsData;
       _isFetchingLive = false;
     });
   }
@@ -216,20 +218,30 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
                           ),
                         ],
                       ),
-                      Column(
-                        children: [
-                          OpenMeteoLiveWidget(
-                            weatherData: _telemetryData,
-                            isFetching: _isFetchingLive,
-                            onRefresh: _loadParallelTelemetry,
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            children: [
+                              OpenMeteoLiveWidget(
+                                weatherData: _telemetryData,
+                                isFetching: _isFetchingLive,
+                                onRefresh: _loadParallelTelemetry,
+                              ),
+                              const SizedBox(height: 10),
+                              GrafanaMcpDashboardWidget(
+                                telemetry: _telemetryData,
+                                isFetching: _isFetchingLive,
+                                onRefresh: _loadParallelTelemetry,
+                              ),
+                              const SizedBox(height: 10),
+                              TelemetryObservabilityWidget(
+                                clickHouseLogs: _clickHouseLogs,
+                                ecosystemData: _telemetryData,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          GrafanaMcpDashboardWidget(
-                            telemetry: _telemetryData,
-                            isFetching: _isFetchingLive,
-                            onRefresh: _loadParallelTelemetry,
-                          ),
-                        ],
+                        ),
                       ),
                       Center(
                         child: SingleChildScrollView(

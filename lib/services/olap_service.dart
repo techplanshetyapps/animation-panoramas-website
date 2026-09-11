@@ -6,6 +6,7 @@ class OlapApiService {
   
   static final Map<String, Map<String, dynamic>> _cache = {};
   
+  static const String parallelApiKey = String.fromEnvironment('PARALLEL_API_KEY', defaultValue: '');
   static const String _clickHouseUrl = String.fromEnvironment(
     'CLICKHOUSE_URL',
     defaultValue: 'https://ynu691xtll.germanywestcentral.azure.clickhouse.cloud:8443',
@@ -74,6 +75,7 @@ class OlapApiService {
         'sunrise': solarData['sunrise'] ?? '06:00:00 AM',
         'sunset': solarData['sunset'] ?? '06:00:00 PM',
         'specimen': specimen,
+        'parallel_api_status': parallelApiKey.isNotEmpty ? 'ACTIVE (Parallel API Connected)' : 'INACTIVE (Key Missing)',
         'status': 'ONLINE_SYNCHRONIZED',
       };
 
@@ -94,6 +96,7 @@ class OlapApiService {
         'sunrise': '06:00:00 AM',
         'sunset': '06:00:00 PM',
         'specimen': 'Fallback Record ($slug)',
+        'parallel_api_status': 'FALLBACK MODE',
         'status': 'OFFLINE_CACHED',
       };
     }
@@ -103,7 +106,7 @@ class OlapApiService {
     try {
       final response = await _dio.post(
         _clickHouseUrl,
-        data: "SELECT toStartOfHour(event_timestamp) as hr, avg(metric_reading) as avg_metric FROM telemetry_germanywestcentral.grafana_mcp_analytics WHERE service_source = '$slug' GROUP BY hr ORDER BY hr DESC LIMIT 10 FORMAT JSON",
+        data: "SELECT toStartOfHour(event_timestamp) as hr, avg(metric_reading) as avg_metric, argMax(mcp_tool_name, event_timestamp) as tool FROM telemetry_germanywestcentral.grafana_mcp_analytics WHERE service_source = '$slug' GROUP BY hr ORDER BY hr DESC LIMIT 10 FORMAT JSON",
         options: _clickHouseAuthOptions,
       );
       
