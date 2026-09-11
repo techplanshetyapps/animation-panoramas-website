@@ -1,10 +1,31 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 
 class OlapApiService {
   final Dio _dio = Dio();
+  
   static final Map<String, Map<String, dynamic>> _cache = {};
   
-  // Parallel API multi-stream fetch combining Open-Meteo (10 parameters), Sunrise-Sunset, and GBIF
+  static const String _clickHouseUrl = String.fromEnvironment(
+    'CLICKHOUSE_URL',
+    defaultValue: 'https://ynu691xtll.germanywestcentral.azure.clickhouse.cloud:8443',
+  );
+  static const String _clickHouseUser = String.fromEnvironment(
+    'CLICKHOUSE_USER',
+    defaultValue: 'default',
+  );
+  static const String _clickHousePass = String.fromEnvironment('CLICKHOUSE_PASS');
+
+  Options get _clickHouseAuthOptions {
+    return Options(
+      headers: {
+        'authorization': 'Basic ${base64Encode(utf8.encode('$_clickHouseUser:$_clickHousePass'))}',
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+      responseType: ResponseType.json,
+    );
+  }
+
   Future<Map<String, dynamic>> fetchEcosystemWithParallelAI(String slug, double lat, double lng) async {
     final cacheKey = "${lat.toStringAsFixed(2)}_${lng.toStringAsFixed(2)}";
     if (_cache.containsKey(cacheKey)) {
@@ -20,9 +41,10 @@ class OlapApiService {
           'longitude': lng,
           'current': 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code',
         }),
-        _dio.get('https://api.sunrise-sunset.org/v2', queryParameters: {
+        _dio.get('https://api.sunrise-sunset.org/json', queryParameters: {
           'lat': lat,
           'lng': lng,
+          'formatted': 0,
         }),
         _dio.get('https://api.gbif.org/v1/occurrence/search', queryParameters: {
           'decimalLatitude': lat,
@@ -77,13 +99,14 @@ class OlapApiService {
     }
   }
 
-  // ClickHouse HTTP interface query runner for OLAP historical aggregates
   Future<List<Map<String, dynamic>>> queryClickHouseAnalytics(String slug) async {
     try {
       final response = await _dio.post(
-        'http://localhost:8123/',
-        data: "SELECT toStartOfHour(timestamp) as hr, avg(temperature_2m) as avg_temp FROM ecosystem_analytics.telemetry_logs WHERE ecosystem_slug = '$slug' GROUP BY hr ORDER BY hr DESC LIMIT 10 FORMAT JSON",
+        _clickHouseUrl,
+        data: "SELECT toStartOfHour(event_timestamp) as hr, avg(metric_reading) as avg_metric FROM telemetry_germanywestcentral.grafana_mcp_analytics WHERE service_source = '$slug' GROUP BY hr ORDER BY hr DESC LIMIT 10 FORMAT JSON",
+        options: _clickHouseAuthOptions,
       );
+      
       if (response.statusCode == 200) {
         final data = response.data['data'] as List?;
         if (data != null) {
@@ -91,7 +114,7 @@ class OlapApiService {
         }
       }
     } catch (e) {
-      // ClickHouse exception ignored safely
+      print("ClickHouse query exception: $e");
     }
     return [];
   }

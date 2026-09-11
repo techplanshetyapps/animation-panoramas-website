@@ -65,11 +65,16 @@ class _EcosystemHomeScreenState extends State<EcosystemHomeScreen> {
     setState(() => _isFetchingLive = true);
     final ecosystem = ecosystems[_currentIndex];
 
+    // Fetch external parallel API and weather data
     final data = await _olapApiService.fetchEcosystemWithParallelAI(
       ecosystem.slug,
       ecosystem.lat,
       ecosystem.lng,
     );
+
+    // Query ClickHouse telemetry analytics for the current ecosystem
+    final analyticsData = await _olapApiService.queryClickHouseAnalytics(ecosystem.slug);
+    print('Loaded ${analyticsData.length} analytics rows from ClickHouse for ${ecosystem.slug}');
 
     setState(() {
       _telemetryData = data;
